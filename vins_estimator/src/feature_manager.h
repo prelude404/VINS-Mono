@@ -15,6 +15,7 @@ using namespace Eigen;
 
 #include "parameters.h"
 
+// 一个路标点在一张图像中的坐标
 class FeaturePerFrame
 {
   public:
@@ -41,12 +42,13 @@ class FeaturePerFrame
     double dep_gradient;
 };
 
+// 观察到某个路径点的所有图像
 class FeaturePerId
 {
   public:
     const int feature_id;
     int start_frame;
-    vector<FeaturePerFrame> feature_per_frame;
+    vector<FeaturePerFrame> feature_per_frame; /**/
 
     int used_num;
     bool is_outlier;
@@ -65,6 +67,7 @@ class FeaturePerId
     int endFrame();
 };
 
+// 滑窗内所有路径点
 class FeatureManager
 {
   public:
@@ -76,6 +79,7 @@ class FeatureManager
 
     int getFeatureCount();
 
+    // 将当前帧与地图中其他帧建立数据关联；已知点加入共视关系，新点则新建
     bool addFeatureCheckParallax(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, double td);
     void debugShow();
     vector<pair<Vector3d, Vector3d>> getCorresponding(int frame_count_l, int frame_count_r);
@@ -90,7 +94,7 @@ class FeatureManager
     void removeBack();
     void removeFront(int frame_count);
     void removeOutlier();
-    list<FeaturePerId> feature;
+    list<FeaturePerId> feature; /**/
     int last_track_num;
 
   private:

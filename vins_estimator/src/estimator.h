@@ -28,35 +28,37 @@ class Estimator
   public:
     Estimator();
 
-    void setParameter();
+    void setParameter(); // 设置参数，初始化 Estimator 参数
 
-    // interface
-    void processIMU(double t, const Vector3d &linear_acceleration, const Vector3d &angular_velocity);
-    void processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const std_msgs::Header &header);
-    void setReloFrame(double _frame_stamp, int _frame_index, vector<Vector3d> &_match_points, Vector3d _relo_t, Matrix3d _relo_r);
+    // interface（接口函数）
+    void processIMU(double t, const Vector3d &linear_acceleration, const Vector3d &angular_velocity); // 处理IMU数据
+    // map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> image
+    // int: Feature ID, int: Camera ID, <double, 7, 1> x,y,z,u,v,vx,vy
+    void processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const std_msgs::Header &header); // 处理图像数据
+    void setReloFrame(double _frame_stamp, int _frame_index, vector<Vector3d> &_match_points, Vector3d _relo_t, Matrix3d _relo_r); // 设置重定位帧信息
 
     // internal
-    void clearState();
-    bool initialStructure();
-    bool visualInitialAlign();
-    bool relativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l);
-    void slideWindow();
-    void solveOdometry();
-    void slideWindowNew();
-    void slideWindowOld();
-    void optimization();
-    void vector2double();
-    void double2vector();
-    bool failureDetection();
+    void clearState(); // 清除状态，初始化状态
+    bool initialStructure(); // 初步构建特征点三角化结构
+    bool visualInitialAlign(); // 视觉初始对齐
+    bool relativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l); // 计算相对位姿
+    void slideWindow(); // 滑动窗口
+    void solveOdometry(); // 解算里程计
+    void slideWindowNew(); // 滑动窗口（新帧）
+    void slideWindowOld(); // 滑动窗口（旧帧）
+    void optimization(); // 优化
+    void vector2double(); // 向量转换为双精度数组
+    void double2vector(); // 双精度数组转换为向量
+    bool failureDetection(); // 失败检测
 
 
-    enum SolverFlag
+    enum SolverFlag // 求解器标志
     {
         INITIAL,
         NON_LINEAR
     };
 
-    enum MarginalizationFlag
+    enum MarginalizationFlag // 边缘化标志
     {
         MARGIN_OLD = 0,
         MARGIN_SECOND_NEW = 1
@@ -64,13 +66,14 @@ class Estimator
 
     SolverFlag solver_flag;
     MarginalizationFlag  marginalization_flag;
-    Vector3d g;
-    MatrixXd Ap[2], backup_A;
-    VectorXd bp[2], backup_b;
+    Vector3d g; // 重力加速度
+    MatrixXd Ap[2], backup_A; // 优化问题的雅可比矩阵
+    VectorXd bp[2], backup_b; // 优化问题的残差向量
 
-    Matrix3d ric[NUM_OF_CAM];
-    Vector3d tic[NUM_OF_CAM];
+    Matrix3d ric[NUM_OF_CAM]; // 相机到IMU的外参旋转矩阵
+    Vector3d tic[NUM_OF_CAM]; // 相机到IMU的外参平移向量
 
+    // 滑窗PVQB
     Vector3d Ps[(WINDOW_SIZE + 1)];
     Vector3d Vs[(WINDOW_SIZE + 1)];
     Matrix3d Rs[(WINDOW_SIZE + 1)];
@@ -92,7 +95,7 @@ class Estimator
     int frame_count;
     int sum_of_outlier, sum_of_back, sum_of_front, sum_of_invalid;
 
-    FeatureManager f_manager;
+    FeatureManager f_manager; // 特征点管理器
     MotionEstimator m_estimator;
     InitialEXRotation initial_ex_rotation;
 

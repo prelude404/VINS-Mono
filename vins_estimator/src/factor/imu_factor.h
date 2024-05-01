@@ -9,6 +9,8 @@
 
 #include <ceres/ceres.h>
 
+// <15,7,9,7,9>
+// 7: T^w_bi, T^w_bj(P, Q); 9: M_bi, M_bj(Ba, Bg)
 class IMUFactor : public ceres::SizedCostFunction<15, 7, 9, 7, 9>
 {
   public:

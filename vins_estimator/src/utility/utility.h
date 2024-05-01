@@ -9,6 +9,7 @@
 #include <cstring>
 #include <eigen3/Eigen/Dense>
 
+// 一些数学计算的工具
 class Utility
 {
   public:

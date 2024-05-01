@@ -10,6 +10,7 @@ bool inBorder(const cv::Point2f &pt)
     return BORDER_SIZE <= img_x && img_x < COL - BORDER_SIZE && BORDER_SIZE <= img_y && img_y < ROW - BORDER_SIZE;
 }
 
+// 根据status去除Vector中不需要的部分
 void reduceVector(vector<cv::Point2f> &v, vector<uchar> status)
 {
     int j = 0;
@@ -33,6 +34,7 @@ FeatureTracker::FeatureTracker()
 {
 }
 
+// 不在已有点附近提取特征点
 void FeatureTracker::setMask()
 {
     if(FISHEYE)
@@ -86,6 +88,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 
     if (EQUALIZE)
     {
+        // 自适应局部直方图均衡化（提升图像对比度）
         cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
         TicToc t_c;
         clahe->apply(_img, img);
@@ -110,6 +113,8 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         TicToc t_o;
         vector<uchar> status;
         vector<float> err;
+        // 光流跟踪匹配特征点
+        // 使用金字塔Lucas-Kanade方法估计稀疏光流，通过特征点的跟踪和迭代优化来估计图像序列中的运动信息
         cv::calcOpticalFlowPyrLK(cur_img, forw_img, cur_pts, forw_pts, status, err, cv::Size(21, 21), 3);
 
         for (int i = 0; i < int(forw_pts.size()); i++)
@@ -146,6 +151,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
                 cout << "mask type wrong " << endl;
             if (mask.size() != forw_img.size())
                 cout << "wrong size " << endl;
+            // Shi-Tomas角点提取
             cv::goodFeaturesToTrack(forw_img, n_pts, MAX_CNT - forw_pts.size(), 0.01, MIN_DIST, mask);
         }
         else
@@ -188,6 +194,7 @@ void FeatureTracker::rejectWithF()
         }
 
         vector<uchar> status;
+        // 计算基础矩阵，并找到光流跟踪结果中的异常点，存入status，并由reduceVector进行降维
         cv::findFundamentalMat(un_cur_pts, un_forw_pts, cv::FM_RANSAC, F_THRESHOLD, 0.99, status);
         int size_a = cur_pts.size();
         reduceVector(prev_pts, status);
@@ -213,12 +220,14 @@ bool FeatureTracker::updateID(unsigned int i)
         return false;
 }
 
+// 读取相机的内部参数
 void FeatureTracker::readIntrinsicParameter(const string &calib_file)
 {
     ROS_INFO("reading paramerter of camera %s", calib_file.c_str());
     m_camera = CameraFactory::instance()->generateCameraFromYamlFile(calib_file);
 }
 
+// 展示图像的畸变校正效果
 void FeatureTracker::showUndistortion(const string &name)
 {
     cv::Mat undistortedImg(ROW + 600, COL + 600, CV_8UC1, cv::Scalar(0));
@@ -255,6 +264,7 @@ void FeatureTracker::showUndistortion(const string &name)
     cv::waitKey(0);
 }
 
+// 对图像中的点进行畸变校正
 void FeatureTracker::undistortedPoints()
 {
     cur_un_pts.clear();

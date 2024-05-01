@@ -105,6 +105,7 @@ void update()
 
 }
 
+// 根据时间戳，挑选当前帧和上一帧图像之间的imu数据，用于后续的imu积分
 std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>>
 getMeasurements()
 {
@@ -112,16 +113,17 @@ getMeasurements()
 
     while (true)
     {
+        // imu或图像为空
         if (imu_buf.empty() || feature_buf.empty())
             return measurements;
-
+        // imu太慢，等等imu
         if (!(imu_buf.back()->header.stamp.toSec() > feature_buf.front()->header.stamp.toSec() + estimator.td))
         {
             //ROS_WARN("wait for imu, only should happen at the beginning");
             sum_of_wait++;
             return measurements;
         }
-
+        // 图像太老，扔掉图像
         if (!(imu_buf.front()->header.stamp.toSec() < feature_buf.front()->header.stamp.toSec() + estimator.td))
         {
             ROS_WARN("throw img, only should happen at the beginning");
@@ -132,6 +134,7 @@ getMeasurements()
         feature_buf.pop();
 
         std::vector<sensor_msgs::ImuConstPtr> IMUs;
+        // 选取两帧之间的imu（estimator.td为事先已知的传感器时间戳差异）
         while (imu_buf.front()->header.stamp.toSec() < img_msg->header.stamp.toSec() + estimator.td)
         {
             IMUs.emplace_back(imu_buf.front());

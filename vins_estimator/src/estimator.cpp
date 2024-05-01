@@ -104,6 +104,7 @@ void Estimator::processIMU(double dt, const Vector3d &linear_acceleration, const
         linear_acceleration_buf[frame_count].push_back(linear_acceleration);
         angular_velocity_buf[frame_count].push_back(angular_velocity);
 
+        // 中值积分预测最新帧的位姿，作为视觉的初始位姿
         int j = frame_count;         
         Vector3d un_acc_0 = Rs[j] * (acc_0 - Bas[j]) - g;
         Vector3d un_gyr = 0.5 * (gyr_0 + angular_velocity) - Bgs[j];
@@ -121,6 +122,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 {
     ROS_DEBUG("new image coming ------------------------------------------");
     ROS_DEBUG("Adding feature points %lu", image.size());
+    // 将当前帧特征点image放入特征点管理器f_manager（并判断边缘化最老帧或次新帧）
     if (f_manager.addFeatureCheckParallax(frame_count, image, td))
         marginalization_flag = MARGIN_OLD;
     else
@@ -187,6 +189,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     else
     {
         TicToc t_solve;
+        // 三角化+滑窗优化
         solveOdometry();
         ROS_DEBUG("solver costs: %fms", t_solve.toc());
 
@@ -477,9 +480,9 @@ void Estimator::solveOdometry()
     if (solver_flag == NON_LINEAR)
     {
         TicToc t_tri;
-        f_manager.triangulate(Ps, tic, ric);
+        f_manager.triangulate(Ps, tic, ric); // 三角化
         ROS_DEBUG("triangulation costs %f", t_tri.toc());
-        optimization();
+        optimization(); // 滑窗优化
     }
 }
 
@@ -670,6 +673,8 @@ bool Estimator::failureDetection()
 void Estimator::optimization()
 {
     ceres::Problem problem;
+    // problem.AddParameterBlock：优化变量
+    // problem.AddResidualBlock：误差项
     ceres::LossFunction *loss_function;
     //loss_function = new ceres::HuberLoss(1.0);
     loss_function = new ceres::CauchyLoss(1.0);
@@ -714,6 +719,7 @@ void Estimator::optimization()
         if (pre_integrations[j]->sum_dt > 10.0)
             continue;
         IMUFactor* imu_factor = new IMUFactor(pre_integrations[j]);
+        // IMU约束
         problem.AddResidualBlock(imu_factor, NULL, para_Pose[i], para_SpeedBias[i], para_Pose[j], para_SpeedBias[j]);
     }
     int f_m_cnt = 0;
@@ -757,6 +763,7 @@ void Estimator::optimization()
             else
             {
                 ProjectionFactor *f = new ProjectionFactor(pts_i, pts_j);
+                // 重投影约束
                 problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index]);
             }
             f_m_cnt++;
@@ -1005,6 +1012,7 @@ void Estimator::optimization()
 void Estimator::slideWindow()
 {
     TicToc t_margin;
+    // 去掉最老帧（逐个移动）
     if (marginalization_flag == MARGIN_OLD)
     {
         double t_0 = Headers[0].stamp.toSec();
@@ -1063,6 +1071,7 @@ void Estimator::slideWindow()
             slideWindowOld();
         }
     }
+    // 去掉次新帧（最新补上）
     else
     {
         if (frame_count == WINDOW_SIZE)
