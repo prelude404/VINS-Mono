@@ -856,7 +856,8 @@ void Estimator::optimization()
         {
             if (pre_integrations[1]->sum_dt < 10.0)
             {
-                IMUFactor* imu_factor = new IMUFactor(pre_integrations[1]);
+                // IMU因子，优化变量：第0、1帧的PVQB
+                IMUFactor* imu_factor = new IMUFactor(pre_integrations[1]); // 添加视觉因子：[T0,M0,T1,M1] => [7,9,7,9]
                 ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(imu_factor, NULL,
                                                                            vector<double *>{para_Pose[0], para_SpeedBias[0], para_Pose[1], para_SpeedBias[1]},
                                                                            vector<int>{0, 1});
@@ -899,7 +900,8 @@ void Estimator::optimization()
                     }
                     else
                     {
-                        ProjectionFactor *f = new ProjectionFactor(pts_i, pts_j);
+                        // 视觉因子，优化变量：第0帧和共视帧的PQ、外参、逆深度
+                        ProjectionFactor *f = new ProjectionFactor(pts_i, pts_j); // 添加视觉因子：[Ti,TJ,Tbc,lambda] => [7,7,7,1]
                         ResidualBlockInfo *residual_block_info = new ResidualBlockInfo(f, loss_function,
                                                                                        vector<double *>{para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index]},
                                                                                        vector<int>{0, 3});

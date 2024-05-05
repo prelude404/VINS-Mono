@@ -107,6 +107,7 @@ void MarginalizationInfo::addResidualBlockInfo(ResidualBlockInfo *residual_block
     }
 }
 
+// 计算每个因子对应的变量（parameter_blocks）、误差项（residuals）、雅可比矩阵（jacobians），变量放入parameter_block_data
 void MarginalizationInfo::preMarginalize()
 {
     for (auto it : factors)
@@ -157,6 +158,7 @@ void* ThreadsConstructA(void* threadsstruct)
                 if (size_j == 7)
                     size_j = 6;
                 Eigen::MatrixXd jacobian_j = it->jacobians[j].leftCols(size_j);
+                // Hij = Ji^T * Jj
                 if (i == j)
                     p->A.block(idx_i, idx_j, size_i, size_j) += jacobian_i.transpose() * jacobian_j;
                 else
@@ -171,8 +173,11 @@ void* ThreadsConstructA(void* threadsstruct)
     return threadsstruct;
 }
 
+// 构建Hessian矩阵，Schur掉需要Marg的变量，得到对于剩余变量的约束（即边缘化约束）
+// Jacobian => Hessian矩阵 => Schur => 边缘化的Hessian => 边缘化的Jacobian
 void MarginalizationInfo::marginalize()
 {
+    // 1. 计算参数块索引和大小
     int pos = 0;
     for (auto &it : parameter_block_idx)
     {
@@ -195,6 +200,7 @@ void MarginalizationInfo::marginalize()
 
     //ROS_DEBUG("marginalization, pos: %d, m: %d, n: %d, size: %d", pos, m, n, (int)parameter_block_idx.size());
 
+    // 2. 初始化边缘化矩阵和向量
     TicToc t_summing;
     Eigen::MatrixXd A(pos, pos);
     Eigen::VectorXd b(pos);
@@ -228,7 +234,7 @@ void MarginalizationInfo::marginalize()
     */
     //multi thread
 
-
+    // 3. 多线程计算边缘化矩阵和向量
     TicToc t_thread_summing;
     pthread_t tids[NUM_THREADS];
     ThreadsStruct threadsstruct[NUM_THREADS];
@@ -262,7 +268,7 @@ void MarginalizationInfo::marginalize()
     //ROS_DEBUG("thread summing up costs %f ms", t_thread_summing.toc());
     //ROS_INFO("A diff %f , b diff %f ", (A - tmp_A).sum(), (b - tmp_b).sum());
 
-
+    // 4. 计算边缘化矩阵的特征值和特征向量
     //TODO
     Eigen::MatrixXd Amm = 0.5 * (A.block(0, 0, m, m) + A.block(0, 0, m, m).transpose());
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes(Amm);
@@ -272,14 +278,18 @@ void MarginalizationInfo::marginalize()
     Eigen::MatrixXd Amm_inv = saes.eigenvectors() * Eigen::VectorXd((saes.eigenvalues().array() > eps).select(saes.eigenvalues().array().inverse(), 0)).asDiagonal() * saes.eigenvectors().transpose();
     //printf("error1: %f\n", (Amm * Amm_inv - Eigen::MatrixXd::Identity(m, m)).sum());
 
+    // 5. 边缘化残差项
+    // Hessian矩阵：[Amm,Amn;Anm,Ann]
     Eigen::VectorXd bmm = b.segment(0, m);
     Eigen::MatrixXd Amr = A.block(0, m, m, n);
     Eigen::MatrixXd Arm = A.block(m, 0, n, m);
     Eigen::MatrixXd Arr = A.block(m, m, n, n);
     Eigen::VectorXd brr = b.segment(m, n);
+    // 包含了边缘化约束的n个向量Ax=b
     A = Arr - Arm * Amm_inv * Amr;
     b = brr - Arm * Amm_inv * bmm;
 
+    // 6. 计算边缘化矩阵的特征值和特征向量，并计算线性化雅可比矩阵和线性化残差向量
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(A);
     Eigen::VectorXd S = Eigen::VectorXd((saes2.eigenvalues().array() > eps).select(saes2.eigenvalues().array(), 0));
     Eigen::VectorXd S_inv = Eigen::VectorXd((saes2.eigenvalues().array() > eps).select(saes2.eigenvalues().array().inverse(), 0));
@@ -287,6 +297,7 @@ void MarginalizationInfo::marginalize()
     Eigen::VectorXd S_sqrt = S.cwiseSqrt();
     Eigen::VectorXd S_inv_sqrt = S_inv.cwiseSqrt();
 
+    // 利用新Arr反求Jacobian和residuals（雅可比和误差项）
     linearized_jacobians = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
     linearized_residuals = S_inv_sqrt.asDiagonal() * saes2.eigenvectors().transpose() * b;
     //std::cout << A << std::endl

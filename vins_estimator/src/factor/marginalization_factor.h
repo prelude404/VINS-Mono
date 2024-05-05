@@ -20,13 +20,13 @@ struct ResidualBlockInfo
     void Evaluate();
 
     ceres::CostFunction *cost_function;
-    ceres::LossFunction *loss_function;
-    std::vector<double *> parameter_blocks;
-    std::vector<int> drop_set;
+    ceres::LossFunction *loss_function; // 核函数
+    std::vector<double *> parameter_blocks; // 优化变量
+    std::vector<int> drop_set; // 待marg变量的序号
 
     double **raw_jacobians;
-    std::vector<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> jacobians;
-    Eigen::VectorXd residuals;
+    std::vector<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> jacobians; // Jacobian
+    Eigen::VectorXd residuals; // 误差项
 
     int localSize(int size)
     {
@@ -58,6 +58,8 @@ class MarginalizationInfo
     std::vector<ResidualBlockInfo *> factors;
     int m, n; // m：需要marg掉的变量的总维度；n：需要保留的变量的总维度
     // long: 每个变量的数据地址
+    // m+n：所有与约束相关变量的维度总和（即H矩阵维度）
+    // m：1(M0)*9(v+b) + 1(P0)*6(p+q) + 1(Tbc)*6 + 6(/lambda)*1
     std::unordered_map<long, int> parameter_block_size; // 每个变量的维度
     int sum_block_size;
     std::unordered_map<long, int> parameter_block_idx; // 每个变量在H矩阵的索引
